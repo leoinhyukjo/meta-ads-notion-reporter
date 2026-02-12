@@ -119,13 +119,22 @@ def step2_fetch_notion_leads():
     sys.path.insert(0, os.path.join(PROJECT_ROOT, 'scripts'))
     import fetch_notion_leads
 
-    # 날짜 범위 설정 (지난 7일)
+    # 날짜 범위 설정 (전주 월~일)
+    # 실행일(월요일)을 기준으로 지난 주 월요일~일요일 기간
     from datetime import date, timedelta
-    end_date = date.today()
-    start_date = end_date - timedelta(days=7)
+    today = date.today()
+    weekday = today.weekday()  # 0=월요일, 6=일요일
+
+    # 지난 주 월요일 날짜 계산
+    days_to_last_monday = weekday + 7
+    last_monday = today - timedelta(days=days_to_last_monday)
+
+    # 지난 주 일요일은 지난 주 월요일 + 6일
+    last_sunday = last_monday + timedelta(days=6)
+
     date_range = {
-        'since': start_date.strftime('%Y-%m-%d'),
-        'until': end_date.strftime('%Y-%m-%d')
+        'since': last_monday.strftime('%Y-%m-%d'),
+        'until': last_sunday.strftime('%Y-%m-%d')
     }
 
     # 메인 함수 실행

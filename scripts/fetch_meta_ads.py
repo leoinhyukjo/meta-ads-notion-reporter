@@ -22,13 +22,28 @@ sys.path.insert(0, PROJECT_ROOT)
 load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
 
-def get_date_range(days=7):
-    """지난 N일간의 날짜 범위 반환"""
-    end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=days)
+def get_date_range():
+    """전주 월~일 날짜 범위 반환
+
+    실행일(월요일)을 기준으로 지난 주 월요일~일요일 기간을 반환합니다.
+    예: 2026-02-17(월) 실행 → 2026-02-10(월) ~ 2026-02-16(일)
+    """
+    today = datetime.now().date()
+
+    # 오늘이 무슨 요일인지 확인 (0=월요일, 6=일요일)
+    weekday = today.weekday()
+
+    # 지난 주 월요일 날짜 계산
+    # 만약 오늘이 월요일이면 7일 전, 화요일이면 8일 전...
+    days_to_last_monday = weekday + 7
+    last_monday = today - timedelta(days=days_to_last_monday)
+
+    # 지난 주 일요일은 지난 주 월요일 + 6일
+    last_sunday = last_monday + timedelta(days=6)
+
     return {
-        'since': start_date.strftime('%Y-%m-%d'),
-        'until': end_date.strftime('%Y-%m-%d')
+        'since': last_monday.strftime('%Y-%m-%d'),
+        'until': last_sunday.strftime('%Y-%m-%d')
     }
 
 
