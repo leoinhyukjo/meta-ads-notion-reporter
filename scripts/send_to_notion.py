@@ -99,9 +99,6 @@ def create_page_properties(data):
         "평균 CPA": {
             "number": summary['avg_cpa']
         },
-        "ROAS": {
-            "number": summary['roas']
-        },
         "캠페인 수": {
             "number": summary['campaign_count']
         },
@@ -116,7 +113,7 @@ def create_page_properties(data):
 
 
 def create_summary_blocks(summary):
-    """주간 요약 섹션 블록 생성"""
+    """주간 요약 섹션 블록 생성 (테이블 형식)"""
     blocks = [
         {
             "object": "block",
@@ -125,28 +122,97 @@ def create_summary_blocks(summary):
                 "rich_text": [
                     {
                         "type": "text",
-                        "text": {"content": "주간 요약"}
+                        "text": {"content": "📊 주간 요약"}
                     }
                 ]
             }
         },
         {
             "object": "block",
-            "type": "callout",
-            "callout": {
-                "icon": {"emoji": "💰"},
-                "rich_text": [
+            "type": "table",
+            "table": {
+                "table_width": 2,
+                "has_column_header": True,
+                "has_row_header": False,
+                "children": [
                     {
-                        "type": "text",
-                        "text": {
-                            "content": f"총 지출: {summary['total_spend']:,.0f}원\n"
-                                      f"총 노출: {summary['total_impressions']:,}회\n"
-                                      f"총 클릭: {summary['total_clicks']:,}회\n"
-                                      f"평균 CPC: {summary['avg_cpc']:,.0f}원\n"
-                                      f"평균 CTR: {summary['avg_ctr']:.2f}%\n"
-                                      f"총 전환: {summary['total_conversions']:,}개\n"
-                                      f"평균 CPA: {summary['avg_cpa']:,.0f}원\n"
-                                      f"ROAS: {summary['roas']:.2f}"
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "메트릭"}, "annotations": {"bold": True}}],
+                                [{"type": "text", "text": {"content": "값"}, "annotations": {"bold": True}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "총 지출"}}],
+                                [{"type": "text", "text": {"content": f"${summary['total_spend']:,.2f}"}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "총 노출"}}],
+                                [{"type": "text", "text": {"content": f"{summary['total_impressions']:,}회"}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "총 클릭"}}],
+                                [{"type": "text", "text": {"content": f"{summary['total_clicks']:,}회"}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "평균 CPC"}}],
+                                [{"type": "text", "text": {"content": f"${summary['avg_cpc']:.2f}"}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "평균 CTR"}}],
+                                [{"type": "text", "text": {"content": f"{summary['avg_ctr']:.2f}%"}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "총 전환 (문의)"}}],
+                                [{"type": "text", "text": {"content": f"{summary['total_conversions']:,}개"}}]
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "평균 CPA"}}],
+                                [{"type": "text", "text": {"content": f"${summary['avg_cpa']:,.2f}"}}]
+                            ]
                         }
                     }
                 ]
@@ -167,7 +233,7 @@ def create_campaign_table_blocks(campaigns):
                 "rich_text": [
                     {
                         "type": "text",
-                        "text": {"content": "캠페인별 성과"}
+                        "text": {"content": "📈 캠페인별 성과"}
                     }
                 ]
             }
@@ -177,64 +243,62 @@ def create_campaign_table_blocks(campaigns):
     # 상위 10개 캠페인만 표시
     top_campaigns = campaigns[:10]
 
-    for campaign in top_campaigns:
-        campaign_block = {
+    # 테이블 헤더 행 생성
+    table_rows = [
+        {
             "object": "block",
-            "type": "toggle",
-            "toggle": {
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": f"{campaign['campaign_name']} | "
-                                      f"지출: {campaign['spend']:,.0f}원 | "
-                                      f"ROAS: {campaign['roas']:.2f}"
-                        }
-                    }
-                ],
-                "children": [
-                    {
-                        "object": "block",
-                        "type": "bulleted_list_item",
-                        "bulleted_list_item": {
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {
-                                        "content": f"노출: {campaign['impressions']:,}회 | "
-                                                  f"클릭: {campaign['clicks']:,}회 | "
-                                                  f"CTR: {campaign['ctr']:.2f}%"
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "object": "block",
-                        "type": "bulleted_list_item",
-                        "bulleted_list_item": {
-                            "rich_text": [
-                                {
-                                    "type": "text",
-                                    "text": {
-                                        "content": f"CPC: {campaign['cpc']:,.0f}원 | "
-                                                  f"전환: {campaign['conversions']['total']}개 | "
-                                                  f"CPA: {campaign['cpa']:,.0f}원"
-                                    }
-                                }
-                            ]
-                        }
-                    }
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": "캠페인명"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "지출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "노출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "클릭"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "CPC"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "CTR"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "전환"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "CPA"}, "annotations": {"bold": True}}]
                 ]
             }
         }
-        blocks.append(campaign_block)
+    ]
+
+    # 각 캠페인 데이터 행 추가
+    for campaign in top_campaigns:
+        table_rows.append({
+            "object": "block",
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": campaign['campaign_name']}}],
+                    [{"type": "text", "text": {"content": f"${campaign['spend']:,.2f}"}}],
+                    [{"type": "text", "text": {"content": f"{campaign['impressions']:,}"}}],
+                    [{"type": "text", "text": {"content": f"{campaign['clicks']:,}"}}],
+                    [{"type": "text", "text": {"content": f"${campaign['cpc']:.2f}"}}],
+                    [{"type": "text", "text": {"content": f"{campaign['ctr']:.2f}%"}}],
+                    [{"type": "text", "text": {"content": f"{campaign['conversions']['total']}"}}],
+                    [{"type": "text", "text": {"content": f"${campaign['cpa']:,.2f}"}}]
+                ]
+            }
+        })
+
+    # 테이블 블록 생성
+    blocks.append({
+        "object": "block",
+        "type": "table",
+        "table": {
+            "table_width": 8,
+            "has_column_header": True,
+            "has_row_header": False,
+            "children": table_rows
+        }
+    })
 
     return blocks
 
 
 def create_audience_blocks(audience):
-    """오디언스 인사이트 블록 생성"""
+    """오디언스 인사이트 블록 생성 (테이블 형식)"""
     blocks = [
         {
             "object": "block",
@@ -243,14 +307,14 @@ def create_audience_blocks(audience):
                 "rich_text": [
                     {
                         "type": "text",
-                        "text": {"content": "오디언스 인사이트"}
+                        "text": {"content": "👥 오디언스 인사이트"}
                     }
                 ]
             }
         }
     ]
 
-    # 연령대별
+    # 연령대별 테이블
     blocks.append({
         "object": "block",
         "type": "heading_3",
@@ -264,26 +328,47 @@ def create_audience_blocks(audience):
         }
     })
 
-    for segment in audience['age'][:5]:  # 상위 5개만
-        blocks.append({
+    age_rows = [
+        {
             "object": "block",
-            "type": "bulleted_list_item",
-            "bulleted_list_item": {
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": f"{segment['age']}세: "
-                                      f"지출 {segment['spend']:,.0f}원 | "
-                                      f"노출 {segment['impressions']:,}회 | "
-                                      f"클릭 {segment['clicks']:,}회"
-                        }
-                    }
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": "연령대"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "지출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "노출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "클릭"}, "annotations": {"bold": True}}]
+                ]
+            }
+        }
+    ]
+
+    for segment in audience['age']:
+        age_rows.append({
+            "object": "block",
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": segment['age']}}],
+                    [{"type": "text", "text": {"content": f"${segment['spend']:,.2f}"}}],
+                    [{"type": "text", "text": {"content": f"{segment['impressions']:,}"}}],
+                    [{"type": "text", "text": {"content": f"{segment['clicks']:,}"}}]
                 ]
             }
         })
 
-    # 성별
+    blocks.append({
+        "object": "block",
+        "type": "table",
+        "table": {
+            "table_width": 4,
+            "has_column_header": True,
+            "has_row_header": False,
+            "children": age_rows
+        }
+    })
+
+    # 성별 테이블
     blocks.append({
         "object": "block",
         "type": "heading_3",
@@ -297,29 +382,50 @@ def create_audience_blocks(audience):
         }
     })
 
+    gender_rows = [
+        {
+            "object": "block",
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": "성별"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "지출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "노출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "클릭"}, "annotations": {"bold": True}}]
+                ]
+            }
+        }
+    ]
+
     for segment in audience['gender']:
         gender_label = {"male": "남성", "female": "여성", "unknown": "미분류"}.get(
             segment['gender'], segment['gender']
         )
-        blocks.append({
+        gender_rows.append({
             "object": "block",
-            "type": "bulleted_list_item",
-            "bulleted_list_item": {
-                "rich_text": [
-                    {
-                        "type": "text",
-                        "text": {
-                            "content": f"{gender_label}: "
-                                      f"지출 {segment['spend']:,.0f}원 | "
-                                      f"노출 {segment['impressions']:,}회 | "
-                                      f"클릭 {segment['clicks']:,}회"
-                        }
-                    }
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": gender_label}}],
+                    [{"type": "text", "text": {"content": f"${segment['spend']:,.2f}"}}],
+                    [{"type": "text", "text": {"content": f"{segment['impressions']:,}"}}],
+                    [{"type": "text", "text": {"content": f"{segment['clicks']:,}"}}]
                 ]
             }
         })
 
-    # 지역별
+    blocks.append({
+        "object": "block",
+        "type": "table",
+        "table": {
+            "table_width": 4,
+            "has_column_header": True,
+            "has_row_header": False,
+            "children": gender_rows
+        }
+    })
+
+    # 지역별 테이블
     blocks.append({
         "object": "block",
         "type": "heading_3",
@@ -327,25 +433,218 @@ def create_audience_blocks(audience):
             "rich_text": [
                 {
                     "type": "text",
-                    "text": {"content": "지역별 분석 (Top 5)"}
+                    "text": {"content": "지역별 분석"}
                 }
             ]
         }
     })
 
-    for segment in audience['region'][:5]:  # 상위 5개만
-        blocks.append({
+    region_rows = [
+        {
             "object": "block",
-            "type": "bulleted_list_item",
-            "bulleted_list_item": {
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": "지역"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "지출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "노출"}, "annotations": {"bold": True}}],
+                    [{"type": "text", "text": {"content": "클릭"}, "annotations": {"bold": True}}]
+                ]
+            }
+        }
+    ]
+
+    for segment in audience['region']:
+        region_rows.append({
+            "object": "block",
+            "type": "table_row",
+            "table_row": {
+                "cells": [
+                    [{"type": "text", "text": {"content": segment['region']}}],
+                    [{"type": "text", "text": {"content": f"${segment['spend']:,.2f}"}}],
+                    [{"type": "text", "text": {"content": f"{segment['impressions']:,}"}}],
+                    [{"type": "text", "text": {"content": f"{segment['clicks']:,}"}}]
+                ]
+            }
+        })
+
+    blocks.append({
+        "object": "block",
+        "type": "table",
+        "table": {
+            "table_width": 4,
+            "has_column_header": True,
+            "has_row_header": False,
+            "children": region_rows
+        }
+    })
+
+    return blocks
+
+
+def create_insights_blocks(data):
+    """데이터 기반 인사이트 블록 생성 (현상 → So What → 액션)"""
+    summary = data['summary']
+    audience = data['audience']
+    campaigns = data['campaigns']
+
+    blocks = [
+        {
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {
                 "rich_text": [
                     {
                         "type": "text",
-                        "text": {
-                            "content": f"{segment['region']}: "
-                                      f"지출 {segment['spend']:,.0f}원 | "
-                                      f"노출 {segment['impressions']:,}회 | "
-                                      f"클릭 {segment['clicks']:,}회"
+                        "text": {"content": "💡 주요 인사이트 & 액션 플랜"}
+                    }
+                ]
+            }
+        }
+    ]
+
+    insights = []
+
+    # 1. CTR 분석
+    avg_ctr = summary['avg_ctr']
+    if avg_ctr > 5:
+        insights.append({
+            "현상": f"평균 CTR {avg_ctr:.2f}%로 업계 평균(2-3%)을 크게 상회",
+            "So What": "광고 크리에이티브와 타겟팅이 오디언스에게 매우 효과적으로 작용하고 있음. 높은 관심도 확보",
+            "액션": "현재 크리에이티브 형식을 템플릿화하여 다른 캠페인에 적용. 예산 증액을 고려하여 도달 범위 확대"
+        })
+    elif avg_ctr < 1:
+        insights.append({
+            "현상": f"평균 CTR {avg_ctr:.2f}%로 업계 평균(2-3%)에 미달",
+            "So What": "광고 소재가 타겟 오디언스의 관심을 끌지 못하고 있음",
+            "액션": "A/B 테스트를 통한 새로운 크리에이티브 시도. 카피 메시지와 이미지/영상 변경 필요"
+        })
+
+    # 2. CPA 분석
+    avg_cpa = summary['avg_cpa']
+    total_conversions = summary['total_conversions']
+    if avg_cpa > 100 and total_conversions > 0:
+        insights.append({
+            "현상": f"평균 CPA ${avg_cpa:,.2f}로 고비용 전환 구조",
+            "So What": "전환당 비용이 높아 ROI 개선 필요. 현재 구조로는 스케일업 시 수익성 악화 우려",
+            "액션": "랜딩 페이지 전환율 최적화(CRO). 폼 간소화, 가치 제안 강화, 로딩 속도 개선으로 전환율 2배 목표"
+        })
+    elif total_conversions == 0:
+        insights.append({
+            "현상": f"주간 전환 {total_conversions}건으로 전환 미발생",
+            "So What": "클릭은 발생하나 실제 액션으로 이어지지 않음. 랜딩 페이지-광고 메시지 불일치 가능성",
+            "액션": "랜딩 페이지 사용자 경험 점검. 문의 폼 위치, CTA 명확성, 모바일 최적화 개선. 리타겟팅 캠페인 추가 고려"
+        })
+
+    # 3. 연령대 분석
+    age_segments = sorted(audience['age'], key=lambda x: x['spend'], reverse=True)
+    if len(age_segments) > 0:
+        top_age = age_segments[0]
+        top_age_ctr = (top_age['clicks'] / top_age['impressions'] * 100) if top_age['impressions'] > 0 else 0
+
+        insights.append({
+            "현상": f"{top_age['age']}세 연령대가 지출의 {(top_age['spend']/summary['total_spend']*100):.1f}% 차지 (${top_age['spend']:,.2f})",
+            "So What": f"특정 연령대에 광고비 집중. 해당 세그먼트가 핵심 타겟으로 검증됨",
+            "액션": f"{top_age['age']}세 맞춤 메시지 강화. 해당 연령대 관심사/페인포인트 기반 크리에이티브 제작. 유사 오디언스(Lookalike) 확장"
+        })
+
+    # 4. 성별 분석
+    gender_segments = audience['gender']
+    if len(gender_segments) >= 2:
+        male = next((s for s in gender_segments if s['gender'] == 'male'), None)
+        female = next((s for s in gender_segments if s['gender'] == 'female'), None)
+
+        if male and female:
+            gender_diff_pct = abs(male['spend'] - female['spend']) / max(male['spend'], female['spend']) * 100
+            if gender_diff_pct > 30:
+                dominant_gender = "남성" if male['spend'] > female['spend'] else "여성"
+                dominant_spend = max(male['spend'], female['spend'])
+
+                insights.append({
+                    "현상": f"{dominant_gender} 지출 ${dominant_spend:,.2f}로 성별 간 {gender_diff_pct:.0f}% 차이",
+                    "So What": f"{dominant_gender}이 주요 고객층. 반대 성별 시장 잠재력 미개척",
+                    "액션": f"저성과 성별 타겟 별도 캠페인 테스트. 성별 맞춤 메시지와 비주얼로 시장 확대 시도. 초기 소액 예산으로 검증"
+                })
+
+    # 5. 지역 집중도 분석
+    region_segments = sorted(audience['region'], key=lambda x: x['spend'], reverse=True)
+    if len(region_segments) > 0:
+        top_region = region_segments[0]
+        region_concentration = top_region['spend'] / summary['total_spend'] * 100
+
+        if region_concentration > 50:
+            insights.append({
+                "현상": f"{top_region['region']} 지역이 전체 지출의 {region_concentration:.1f}% 차지 (${top_region['spend']:,.2f})",
+                "So What": "특정 지역 의존도 높음. 지역 다변화 필요성",
+                "액션": f"2순위 지역({region_segments[1]['region'] if len(region_segments) > 1 else '기타'}) 예산 증액 테스트. 지역별 맞춤 메시지(방언, 지역 이슈) 적용"
+            })
+
+    # 인사이트를 토글 블록으로 추가
+    for i, insight in enumerate(insights, 1):
+        blocks.append({
+            "object": "block",
+            "type": "toggle",
+            "toggle": {
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {"content": f"인사이트 {i}: {insight['현상'][:50]}..."},
+                        "annotations": {"bold": True}
+                    }
+                ],
+                "children": [
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "icon": {"emoji": "📊"},
+                            "rich_text": [
+                                {
+                                    "type": "text",
+                                    "text": {"content": "현상\n"},
+                                    "annotations": {"bold": True, "color": "blue"}
+                                },
+                                {
+                                    "type": "text",
+                                    "text": {"content": insight['현상']}
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "icon": {"emoji": "🤔"},
+                            "rich_text": [
+                                {
+                                    "type": "text",
+                                    "text": {"content": "So What?\n"},
+                                    "annotations": {"bold": True, "color": "purple"}
+                                },
+                                {
+                                    "type": "text",
+                                    "text": {"content": insight['So What']}
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "icon": {"emoji": "🎯"},
+                            "rich_text": [
+                                {
+                                    "type": "text",
+                                    "text": {"content": "액션 플랜\n"},
+                                    "annotations": {"bold": True, "color": "orange"}
+                                },
+                                {
+                                    "type": "text",
+                                    "text": {"content": insight['액션']}
+                                }
+                            ]
                         }
                     }
                 ]
@@ -367,6 +666,9 @@ def create_page_content(data):
 
     # 오디언스 인사이트
     blocks.extend(create_audience_blocks(data['audience']))
+
+    # 데이터 기반 인사이트
+    blocks.extend(create_insights_blocks(data))
 
     return blocks
 

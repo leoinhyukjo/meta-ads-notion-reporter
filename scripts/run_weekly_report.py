@@ -109,10 +109,34 @@ def step1_fetch_meta_data():
     return output_path
 
 
-def step2_process_data():
-    """Step 2: 데이터 처리"""
+def step2_fetch_notion_leads():
+    """Step 2: Notion 문의 데이터 수집"""
     logger.info("=" * 60)
-    logger.info("Step 2: 데이터 처리")
+    logger.info("Step 2: Notion 문의 데이터 수집")
+    logger.info("=" * 60)
+
+    # fetch_notion_leads 모듈 import
+    sys.path.insert(0, os.path.join(PROJECT_ROOT, 'scripts'))
+    import fetch_notion_leads
+
+    # 날짜 범위 설정 (지난 7일)
+    from datetime import date, timedelta
+    end_date = date.today()
+    start_date = end_date - timedelta(days=7)
+    date_range = {
+        'since': start_date.strftime('%Y-%m-%d'),
+        'until': end_date.strftime('%Y-%m-%d')
+    }
+
+    # 메인 함수 실행
+    output_path, leads_count = fetch_notion_leads.main(date_range)
+    return output_path
+
+
+def step3_process_data():
+    """Step 3: 데이터 처리"""
+    logger.info("=" * 60)
+    logger.info("Step 3: 데이터 처리")
     logger.info("=" * 60)
 
     # process_data 모듈 import
@@ -124,10 +148,10 @@ def step2_process_data():
     return output_path
 
 
-def step3_send_to_notion():
-    """Step 3: Notion 업데이트"""
+def step4_send_to_notion():
+    """Step 4: Notion 업데이트"""
     logger.info("=" * 60)
-    logger.info("Step 3: Notion 업데이트")
+    logger.info("Step 4: Notion 업데이트")
     logger.info("=" * 60)
 
     # send_to_notion 모듈 import
@@ -174,11 +198,14 @@ def main():
         # Step 1: Meta 데이터 수집 (재시도 포함)
         raw_data_path = retry_on_failure(step1_fetch_meta_data)
 
-        # Step 2: 데이터 처리 (재시도 포함)
-        processed_data_path = retry_on_failure(step2_process_data)
+        # Step 2: Notion 문의 데이터 수집 (재시도 포함)
+        notion_leads_path = retry_on_failure(step2_fetch_notion_leads)
 
-        # Step 3: Notion 업데이트 (재시도 포함)
-        notion_page_url = retry_on_failure(step3_send_to_notion)
+        # Step 3: 데이터 처리 (재시도 포함)
+        processed_data_path = retry_on_failure(step3_process_data)
+
+        # Step 4: Notion 업데이트 (재시도 포함)
+        notion_page_url = retry_on_failure(step4_send_to_notion)
 
         # 소요 시간 계산
         elapsed_time = time.time() - start_time

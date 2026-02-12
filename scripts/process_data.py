@@ -28,7 +28,25 @@ def get_latest_raw_data():
         raise FileNotFoundError(f"data/raw/ 디렉토리에 데이터 파일이 없습니다.")
 
     latest_file = max(json_files, key=lambda p: p.stat().st_mtime)
-    print(f"📂 데이터 파일 로드: {latest_file}")
+    print(f"📂 Meta 광고 데이터 로드: {latest_file}")
+
+    with open(latest_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    return data
+
+
+def get_latest_notion_leads():
+    """data/raw/에서 가장 최근 Notion 문의 데이터 찾기"""
+    raw_dir = os.path.join(PROJECT_ROOT, 'data', 'raw')
+    json_files = list(Path(raw_dir).glob('notion_leads_*.json'))
+
+    if not json_files:
+        print("⚠️  Notion 문의 데이터를 찾을 수 없습니다. 전환 수를 0으로 계산합니다.")
+        return {'total_leads': 0, 'leads': []}
+
+    latest_file = max(json_files, key=lambda p: p.stat().st_mtime)
+    print(f"📂 Notion 문의 데이터 로드: {latest_file}")
 
     with open(latest_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -194,15 +212,20 @@ def process_audience_data(audience_data):
     return processed_audience
 
 
-def calculate_summary(processed_campaigns):
+def calculate_summary(processed_campaigns, notion_leads_count=0):
     """주간 요약 통계 계산"""
     print("📊 주간 요약 계산 중...")
 
     total_spend = sum(c['spend'] for c in processed_campaigns)
     total_impressions = sum(c['impressions'] for c in processed_campaigns)
     total_clicks = sum(c['clicks'] for c in processed_campaigns)
-    total_conversions = sum(c['conversions']['total'] for c in processed_campaigns)
-    total_conversion_value = sum(c['conversion_value']['total'] for c in processed_campaigns)
+
+    # 🔥 실제 전환 = Notion 문의 수
+    total_conversions = notion_leads_count
+
+    # 전환 가치 (문의 1건당 평균 가치 USD, 필요시 수정)
+    avg_lead_value = 500  # $500 (조정 가능)
+    total_conversion_value = total_conversions * avg_lead_value
 
     avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0
     avg_ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
@@ -223,9 +246,10 @@ def calculate_summary(processed_campaigns):
     }
 
     print(f"   ✅ 요약 계산 완료")
-    print(f"      총 지출: {summary['total_spend']:,.0f}원")
+    print(f"      총 지출: ${summary['total_spend']:,.2f}")
     print(f"      총 노출: {summary['total_impressions']:,}회")
-    print(f"      평균 ROAS: {summary['roas']:.2f}")
+    print(f"      총 전환 (문의): {summary['total_conversions']}개")
+    print(f"      평균 CPA: ${summary['avg_cpa']:,.2f}")
 
     return summary
 
@@ -251,14 +275,18 @@ def main():
         # 원본 데이터 로드
         raw_data = get_latest_raw_data()
 
+        # Notion 문의 데이터 로드
+        notion_leads_data = get_latest_notion_leads()
+        notion_leads_count = notion_leads_data.get('total_leads', 0)
+
         # 캠페인 데이터 처리
         processed_campaigns = process_campaigns(raw_data.get('campaigns', []))
 
         # 오디언스 데이터 처리
         processed_audience = process_audience_data(raw_data.get('audience', {}))
 
-        # 주간 요약 계산
-        summary = calculate_summary(processed_campaigns)
+        # 주간 요약 계산 (Notion 문의 수를 실제 전환으로 사용)
+        summary = calculate_summary(processed_campaigns, notion_leads_count)
 
         # 전체 처리 결과
         processed_data = {
