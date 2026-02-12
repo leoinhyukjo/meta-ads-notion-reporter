@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""
+Meta Ads 데이터 처리 스크립트
+
+원본 데이터를 분석하여 주요 메트릭을 계산하고 Notion 형식으로 변환합니다.
+- 메트릭 계산: CPC, CTR, CPA, ROAS
+- 캠페인별 성과 분석
+- 오디언스 인사이트 정리
+"""
+
+import os
+import sys
+import json
+from datetime import datetime
+from pathlib import Path
+
+# 프로젝트 루트 디렉토리
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
+
+
+def get_latest_raw_data():
+    """data/raw/에서 가장 최근 데이터 파일 찾기"""
+    raw_dir = os.path.join(PROJECT_ROOT, 'data', 'raw')
+    json_files = list(Path(raw_dir).glob('ads_data_*.json'))
+
+    if not json_files:
+        raise FileNotFoundError(f"data/raw/ 디렉토리에 데이터 파일이 없습니다.")
+
+    latest_file = max(json_files, key=lambda p: p.stat().st_mtime)
+    print(f"📂 데이터 파일 로드: {latest_file}")
+
+    with open(latest_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    return data
+
+
+def safe_float(value, default=0.0):
+    """안전하게 float 변환"""
+    try:
+        return float(value) if value else default
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_int(value, default=0):
+    """안전하게 int 변환"""
+    try:
+        return int(value) if value else default
+    except (ValueError, TypeError):
+        return default
+
+
+def extract_actions(actions, action_type):
+    """actions 배열에서 특정 action_type의 값 추출"""
+    if not actions or not isinstance(actions, list):
+        return 0
+
+    for action in actions:
+        if action.get('action_type') == action_type:
+            return safe_int(action.get('value', 0))
+
+    return 0
+
+
+def extract_action_values(action_values, action_type):
+    """action_values 배열에서 특정 action_type의 값 추출"""
+    if not action_values or not isinstance(action_values, list):
+        return 0.0
+
+    for action in action_values:
+        if action.get('action_type') == action_type:
+            return safe_float(action.get('value', 0))
+
+    return 0.0
+
+
+def calculate_metrics(campaign):
+    """캠페인 메트릭 계산"""
+    impressions = safe_int(campaign.get('impressions', 0))
+    clicks = safe_int(campaign.get('clicks', 0))
+    spend = safe_float(campaign.get('spend', 0))
+
+    # 전환 데이터 추출
+    actions = campaign.get('actions', [])
+    action_values = campaign.get('action_values', [])
+
+    # 주요 전환 타입
+    purchase = extract_actions(actions, 'purchase')
+    lead = extract_actions(actions, 'lead')
+    add_to_cart = extract_actions(actions, 'add_to_cart')
+    link_click = extract_actions(actions, 'link_click')
+
+    # 전환 가치
+    purchase_value = extract_action_values(action_values, 'purchase')
+    total_conversion_value = extract_action_values(action_values, 'omni_purchase')
+
+    # 총 전환 수 (purchase + lead)
+    total_conversions = purchase + lead
+
+    # 메트릭 계산
+    cpc = spend / clicks if clicks > 0 else 0
+    ctr = (clicks / impressions * 100) if impressions > 0 else 0
+    cpa = spend / total_conversions if total_conversions > 0 else 0
+    roas = total_conversion_value / spend if spend > 0 else 0
+
+    return {
+        'campaign_id': campaign.get('campaign_id'),
+        'campaign_name': campaign.get('campaign_name'),
+        'impressions': impressions,
+        'clicks': clicks,
+        'spend': round(spend, 2),
+        'reach': safe_int(campaign.get('reach', 0)),
+        'frequency': safe_float(campaign.get('frequency', 0)),
+        'cpc': round(cpc, 2),
+        'ctr': round(ctr, 2),
+        'cpm': safe_float(campaign.get('cpm', 0)),
+        'conversions': {
+            'purchase': purchase,
+            'lead': lead,
+            'add_to_cart': add_to_cart,
+            'link_click': link_click,
+            'total': total_conversions
+        },
+        'conversion_value': {
+            'purchase': round(purchase_value, 2),
+            'total': round(total_conversion_value, 2)
+        },
+        'cpa': round(cpa, 2),
+        'roas': round(roas, 2)
+    }
+
+
+def process_campaigns(campaigns):
+    """모든 캠페인 데이터 처리"""
+    print(f"📊 {len(campaigns)}개 캠페인 처리 중...")
+
+    processed_campaigns = []
+    for campaign in campaigns:
+        metrics = calculate_metrics(campaign)
+        processed_campaigns.append(metrics)
+
+    # 지출 순으로 정렬
+    processed_campaigns.sort(key=lambda x: x['spend'], reverse=True)
+
+    print(f"   ✅ 캠페인 처리 완료")
+    return processed_campaigns
+
+
+def process_audience_data(audience_data):
+    """오디언스 데이터 처리"""
+    print("📊 오디언스 데이터 처리 중...")
+
+    processed_audience = {
+        'age': [],
+        'gender': [],
+        'region': []
+    }
+
+    # 연령대별 처리
+    for segment in audience_data.get('age', []):
+        processed_audience['age'].append({
+            'age': segment.get('age', 'Unknown'),
+            'impressions': safe_int(segment.get('impressions', 0)),
+            'clicks': safe_int(segment.get('clicks', 0)),
+            'spend': round(safe_float(segment.get('spend', 0)), 2)
+        })
+
+    # 성별 처리
+    for segment in audience_data.get('gender', []):
+        processed_audience['gender'].append({
+            'gender': segment.get('gender', 'Unknown'),
+            'impressions': safe_int(segment.get('impressions', 0)),
+            'clicks': safe_int(segment.get('clicks', 0)),
+            'spend': round(safe_float(segment.get('spend', 0)), 2)
+        })
+
+    # 지역별 처리
+    for segment in audience_data.get('region', []):
+        processed_audience['region'].append({
+            'region': segment.get('region', 'Unknown'),
+            'impressions': safe_int(segment.get('impressions', 0)),
+            'clicks': safe_int(segment.get('clicks', 0)),
+            'spend': round(safe_float(segment.get('spend', 0)), 2)
+        })
+
+    # 지출 순으로 정렬
+    processed_audience['age'].sort(key=lambda x: x['spend'], reverse=True)
+    processed_audience['gender'].sort(key=lambda x: x['spend'], reverse=True)
+    processed_audience['region'].sort(key=lambda x: x['spend'], reverse=True)
+
+    print(f"   ✅ 오디언스 데이터 처리 완료")
+    return processed_audience
+
+
+def calculate_summary(processed_campaigns):
+    """주간 요약 통계 계산"""
+    print("📊 주간 요약 계산 중...")
+
+    total_spend = sum(c['spend'] for c in processed_campaigns)
+    total_impressions = sum(c['impressions'] for c in processed_campaigns)
+    total_clicks = sum(c['clicks'] for c in processed_campaigns)
+    total_conversions = sum(c['conversions']['total'] for c in processed_campaigns)
+    total_conversion_value = sum(c['conversion_value']['total'] for c in processed_campaigns)
+
+    avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0
+    avg_ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
+    avg_cpa = total_spend / total_conversions if total_conversions > 0 else 0
+    roas = total_conversion_value / total_spend if total_spend > 0 else 0
+
+    summary = {
+        'total_spend': round(total_spend, 2),
+        'total_impressions': total_impressions,
+        'total_clicks': total_clicks,
+        'total_conversions': total_conversions,
+        'total_conversion_value': round(total_conversion_value, 2),
+        'avg_cpc': round(avg_cpc, 2),
+        'avg_ctr': round(avg_ctr, 2),
+        'avg_cpa': round(avg_cpa, 2),
+        'roas': round(roas, 2),
+        'campaign_count': len(processed_campaigns)
+    }
+
+    print(f"   ✅ 요약 계산 완료")
+    print(f"      총 지출: {summary['total_spend']:,.0f}원")
+    print(f"      총 노출: {summary['total_impressions']:,}회")
+    print(f"      평균 ROAS: {summary['roas']:.2f}")
+
+    return summary
+
+
+def save_processed_data(data, filename):
+    """처리된 데이터를 JSON 파일로 저장"""
+    output_path = os.path.join(PROJECT_ROOT, 'data', 'processed', filename)
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    print(f"💾 처리된 데이터 저장: {output_path}")
+    return output_path
+
+
+def main():
+    """메인 실행 함수"""
+    try:
+        print("=" * 60)
+        print("Meta Ads 데이터 처리 시작")
+        print("=" * 60)
+
+        # 원본 데이터 로드
+        raw_data = get_latest_raw_data()
+
+        # 캠페인 데이터 처리
+        processed_campaigns = process_campaigns(raw_data.get('campaigns', []))
+
+        # 오디언스 데이터 처리
+        processed_audience = process_audience_data(raw_data.get('audience', {}))
+
+        # 주간 요약 계산
+        summary = calculate_summary(processed_campaigns)
+
+        # 전체 처리 결과
+        processed_data = {
+            'processed_at': datetime.now().isoformat(),
+            'date_range': raw_data.get('date_range', {}),
+            'summary': summary,
+            'campaigns': processed_campaigns,
+            'audience': processed_audience,
+            'metadata': {
+                'source_file': raw_data.get('collected_at'),
+                'ad_account_id': raw_data.get('ad_account_id')
+            }
+        }
+
+        # 파일명 생성
+        filename = f"weekly_report_{datetime.now().strftime('%Y-%m-%d')}.json"
+
+        # 저장
+        output_path = save_processed_data(processed_data, filename)
+
+        print("=" * 60)
+        print("✅ 데이터 처리 완료!")
+        print(f"   파일 경로: {output_path}")
+        print("=" * 60)
+
+        return output_path
+
+    except Exception as e:
+        print(f"❌ 에러 발생: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

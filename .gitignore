@@ -1,0 +1,40 @@
+# Environment Variables
+.env
+*.env
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Data Files
+data/raw/*.json
+data/processed/*.json
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# Config (contains sensitive IDs)
+config/config.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

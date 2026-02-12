@@ -1,0 +1,86 @@
+name: Weekly Meta Ads Report
+
+on:
+  # 매주 월요일 00:00 UTC (09:00 KST) 실행
+  schedule:
+    - cron: '0 0 * * 1'
+
+  # 수동 실행 지원
+  workflow_dispatch:
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          META_APP_ID="${{ secrets.META_APP_ID }}"
+          META_APP_SECRET="${{ secrets.META_APP_SECRET }}"
+          META_ACCESS_TOKEN="${{ secrets.META_ACCESS_TOKEN }}"
+          META_AD_ACCOUNT_ID="${{ secrets.META_AD_ACCOUNT_ID }}"
+          NOTION_TOKEN="${{ secrets.NOTION_TOKEN }}"
+          NOTION_PARENT_PAGE_ID="${{ secrets.NOTION_PARENT_PAGE_ID }}"
+          SLACK_WEBHOOK_URL="${{ secrets.SLACK_WEBHOOK_URL }}"
+          EOF
+
+      - name: Create config.json
+        run: |
+          mkdir -p config
+          cat > config/config.json << EOF
+          {
+            "notion_database_id": "${{ secrets.NOTION_DATABASE_ID }}",
+            "notion_database_url": "https://www.notion.so/${{ secrets.NOTION_DATABASE_ID }}",
+            "created_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+
+      - name: Run weekly report automation
+        id: run_report
+        run: |
+          python scripts/run_weekly_report.py
+        continue-on-error: true
+
+      - name: Upload automation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-log-${{ github.run_number }}
+          path: logs/automation.log
+          retention-days: 30
+
+      - name: Upload raw data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-data-${{ github.run_number }}
+          path: data/raw/*.json
+          retention-days: 7
+
+      - name: Upload processed data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-data-${{ github.run_number }}
+          path: data/processed/*.json
+          retention-days: 7
+
+      - name: Check job status
+        if: steps.run_report.outcome == 'failure'
+        run: |
+          echo "::error::Weekly report generation failed"
+          exit 1
