@@ -142,8 +142,6 @@ def step3_send_to_notion():
 def validate_environment():
     """환경 변수 검증"""
     required_vars = [
-        'META_APP_ID',
-        'META_APP_SECRET',
         'META_ACCESS_TOKEN',
         'META_AD_ACCOUNT_ID',
         'NOTION_TOKEN',

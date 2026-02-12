@@ -10,11 +10,9 @@ Meta Marketing API 데이터 수집 스크립트
 import os
 import sys
 import json
+import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from facebook_business.api import FacebookAdsApi
-from facebook_business.adobjects.adaccount import AdAccount
-from facebook_business.adobjects.adsinsights import AdsInsights
 
 # 프로젝트 루트 디렉토리
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,115 +32,118 @@ def get_date_range(days=7):
     }
 
 
-def initialize_api():
-    """Meta API 초기화"""
-    app_id = os.getenv('META_APP_ID')
-    app_secret = os.getenv('META_APP_SECRET')
+def get_access_token():
+    """Access Token 확인"""
     access_token = os.getenv('META_ACCESS_TOKEN')
 
-    if not all([app_id, app_secret, access_token]):
-        raise ValueError("META_APP_ID, META_APP_SECRET, META_ACCESS_TOKEN이 .env에 설정되어야 합니다.")
+    if not access_token:
+        raise ValueError("META_ACCESS_TOKEN이 .env에 설정되어야 합니다.")
 
-    FacebookAdsApi.init(app_id, app_secret, access_token)
-    print("✅ Meta API 인증 완료")
+    print("✅ Meta API Access Token 확인 완료")
+    return access_token
 
 
-def fetch_campaign_insights(ad_account_id, date_range):
+def fetch_campaign_insights(ad_account_id, date_range, access_token):
     """캠페인별 성과 데이터 수집"""
-    account = AdAccount(ad_account_id)
+    api_version = 'v19.0'
+    base_url = f'https://graph.facebook.com/{api_version}'
 
     # 수집할 필드
     fields = [
-        AdsInsights.Field.campaign_id,
-        AdsInsights.Field.campaign_name,
-        AdsInsights.Field.impressions,
-        AdsInsights.Field.clicks,
-        AdsInsights.Field.spend,
-        AdsInsights.Field.reach,
-        AdsInsights.Field.frequency,
-        AdsInsights.Field.cpc,
-        AdsInsights.Field.cpm,
-        AdsInsights.Field.cpp,
-        AdsInsights.Field.ctr,
-        AdsInsights.Field.actions,
-        AdsInsights.Field.action_values,
-        AdsInsights.Field.cost_per_action_type,
+        'campaign_id',
+        'campaign_name',
+        'impressions',
+        'clicks',
+        'spend',
+        'reach',
+        'frequency',
+        'cpc',
+        'cpm',
+        'cpp',
+        'ctr',
+        'actions',
+        'action_values',
+        'cost_per_action_type',
     ]
 
-    # 파라미터
+    # API 요청 파라미터
     params = {
-        'time_range': date_range,
+        'access_token': access_token,
+        'fields': ','.join(fields),
+        'time_range': json.dumps(date_range),
         'level': 'campaign',
-        'filtering': [],
         'limit': 500
     }
 
     print(f"📊 캠페인 인사이트 수집 중... ({date_range['since']} ~ {date_range['until']})")
 
-    insights = account.get_insights(fields=fields, params=params)
+    # API 호출
+    url = f'{base_url}/{ad_account_id}/insights'
+    response = requests.get(url, params=params)
 
-    # 결과를 딕셔너리 리스트로 변환
-    campaign_data = []
-    for insight in insights:
-        campaign_data.append(dict(insight))
+    if response.status_code != 200:
+        raise Exception(f"Meta API 에러: {response.status_code} - {response.text}")
+
+    data = response.json()
+    campaign_data = data.get('data', [])
 
     print(f"   ✅ {len(campaign_data)}개 캠페인 데이터 수집 완료")
     return campaign_data
 
 
-def fetch_audience_insights(ad_account_id, date_range):
+def fetch_audience_insights(ad_account_id, date_range, access_token):
     """오디언스 breakdown 데이터 수집"""
-    account = AdAccount(ad_account_id)
+    api_version = 'v19.0'
+    base_url = f'https://graph.facebook.com/{api_version}'
 
     fields = [
-        AdsInsights.Field.impressions,
-        AdsInsights.Field.clicks,
-        AdsInsights.Field.spend,
-        AdsInsights.Field.actions,
+        'impressions',
+        'clicks',
+        'spend',
+        'actions',
     ]
 
     audience_data = {}
 
     # 연령대별 분석
     print("📊 연령대별 인사이트 수집 중...")
-    age_insights = account.get_insights(
-        fields=fields,
-        params={
-            'time_range': date_range,
-            'level': 'account',
-            'breakdowns': ['age'],
-            'limit': 100
-        }
-    )
-    audience_data['age'] = [dict(insight) for insight in age_insights]
+    params = {
+        'access_token': access_token,
+        'fields': ','.join(fields),
+        'time_range': json.dumps(date_range),
+        'level': 'account',
+        'breakdowns': 'age',
+        'limit': 100
+    }
+    url = f'{base_url}/{ad_account_id}/insights'
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Meta API 에러 (연령대): {response.status_code} - {response.text}")
+
+    audience_data['age'] = response.json().get('data', [])
     print(f"   ✅ {len(audience_data['age'])}개 연령대 데이터 수집 완료")
 
     # 성별 분석
     print("📊 성별 인사이트 수집 중...")
-    gender_insights = account.get_insights(
-        fields=fields,
-        params={
-            'time_range': date_range,
-            'level': 'account',
-            'breakdowns': ['gender'],
-            'limit': 100
-        }
-    )
-    audience_data['gender'] = [dict(insight) for insight in gender_insights]
+    params['breakdowns'] = 'gender'
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Meta API 에러 (성별): {response.status_code} - {response.text}")
+
+    audience_data['gender'] = response.json().get('data', [])
     print(f"   ✅ {len(audience_data['gender'])}개 성별 데이터 수집 완료")
 
     # 지역별 분석
     print("📊 지역별 인사이트 수집 중...")
-    region_insights = account.get_insights(
-        fields=fields,
-        params={
-            'time_range': date_range,
-            'level': 'account',
-            'breakdowns': ['region'],
-            'limit': 100
-        }
-    )
-    audience_data['region'] = [dict(insight) for insight in region_insights]
+    params['breakdowns'] = 'region'
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Meta API 에러 (지역): {response.status_code} - {response.text}")
+
+    audience_data['region'] = response.json().get('data', [])
     print(f"   ✅ {len(audience_data['region'])}개 지역 데이터 수집 완료")
 
     return audience_data
@@ -166,8 +167,8 @@ def main():
         print("Meta Ads 데이터 수집 시작")
         print("=" * 60)
 
-        # API 초기화
-        initialize_api()
+        # Access Token 확인
+        access_token = get_access_token()
 
         # 광고 계정 ID
         ad_account_id = os.getenv('META_AD_ACCOUNT_ID')
@@ -180,8 +181,8 @@ def main():
         date_range = get_date_range(days=7)
 
         # 데이터 수집
-        campaign_data = fetch_campaign_insights(ad_account_id, date_range)
-        audience_data = fetch_audience_insights(ad_account_id, date_range)
+        campaign_data = fetch_campaign_insights(ad_account_id, date_range, access_token)
+        audience_data = fetch_audience_insights(ad_account_id, date_range, access_token)
 
         # 전체 데이터 구조
         full_data = {
