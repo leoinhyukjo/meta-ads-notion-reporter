@@ -1,10 +1,7 @@
 name: Weekly Meta Ads Report
 
 on:
-  # 매주 월요일 00:00 UTC (09:00 KST) 실행
-  schedule:
-    - cron: '0 0 * * 1'
-
+  # schedule은 launchd로 이전 (2026-02-23)
   # 수동 실행 지원
   workflow_dispatch:
 
