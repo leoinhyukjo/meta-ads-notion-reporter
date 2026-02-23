@@ -112,6 +112,8 @@ def fetch_audience_insights(ad_account_id, date_range, access_token):
     base_url = f'https://graph.facebook.com/{api_version}'
 
     fields = [
+        'campaign_id',
+        'campaign_name',
         'impressions',
         'clicks',
         'spend',
@@ -120,15 +122,15 @@ def fetch_audience_insights(ad_account_id, date_range, access_token):
 
     audience_data = {}
 
-    # 연령대별 분석
+    # 연령대별 분석 (캠페인별)
     print("📊 연령대별 인사이트 수집 중...")
     params = {
         'access_token': access_token,
         'fields': ','.join(fields),
         'time_range': json.dumps(date_range),
-        'level': 'account',
+        'level': 'campaign',
         'breakdowns': 'age',
-        'limit': 100
+        'limit': 500
     }
     url = f'{base_url}/{ad_account_id}/insights'
     response = requests.get(url, params=params)

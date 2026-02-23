@@ -167,49 +167,44 @@ def process_campaigns(campaigns):
 
 
 def process_audience_data(audience_data):
-    """오디언스 데이터 처리"""
+    """오디언스 데이터를 캠페인별로 그룹화하여 처리"""
     print("📊 오디언스 데이터 처리 중...")
 
-    processed_audience = {
-        'age': [],
-        'gender': [],
-        'region': []
-    }
+    # 캠페인별 그룹화
+    by_campaign: dict[str, dict] = {}
 
-    # 연령대별 처리
-    for segment in audience_data.get('age', []):
-        processed_audience['age'].append({
-            'age': segment.get('age', 'Unknown'),
-            'impressions': safe_int(segment.get('impressions', 0)),
-            'clicks': safe_int(segment.get('clicks', 0)),
-            'spend': round(safe_float(segment.get('spend', 0)), 2)
-        })
+    for breakdown_type in ('age', 'gender', 'region'):
+        for segment in audience_data.get(breakdown_type, []):
+            cid = segment.get('campaign_id', 'unknown')
+            if cid not in by_campaign:
+                by_campaign[cid] = {
+                    'campaign_name': segment.get('campaign_name', ''),
+                    'age': [], 'gender': [], 'region': []
+                }
 
-    # 성별 처리
-    for segment in audience_data.get('gender', []):
-        processed_audience['gender'].append({
-            'gender': segment.get('gender', 'Unknown'),
-            'impressions': safe_int(segment.get('impressions', 0)),
-            'clicks': safe_int(segment.get('clicks', 0)),
-            'spend': round(safe_float(segment.get('spend', 0)), 2)
-        })
+            entry = {
+                'impressions': safe_int(segment.get('impressions', 0)),
+                'clicks': safe_int(segment.get('clicks', 0)),
+                'spend': round(safe_float(segment.get('spend', 0)), 2),
+            }
 
-    # 지역별 처리
-    for segment in audience_data.get('region', []):
-        processed_audience['region'].append({
-            'region': segment.get('region', 'Unknown'),
-            'impressions': safe_int(segment.get('impressions', 0)),
-            'clicks': safe_int(segment.get('clicks', 0)),
-            'spend': round(safe_float(segment.get('spend', 0)), 2)
-        })
+            if breakdown_type == 'age':
+                entry['age'] = segment.get('age', 'Unknown')
+            elif breakdown_type == 'gender':
+                entry['gender'] = segment.get('gender', 'Unknown')
+            elif breakdown_type == 'region':
+                entry['region'] = segment.get('region', 'Unknown')
 
-    # 지출 순으로 정렬
-    processed_audience['age'].sort(key=lambda x: x['spend'], reverse=True)
-    processed_audience['gender'].sort(key=lambda x: x['spend'], reverse=True)
-    processed_audience['region'].sort(key=lambda x: x['spend'], reverse=True)
+            by_campaign[cid][breakdown_type].append(entry)
 
-    print(f"   ✅ 오디언스 데이터 처리 완료")
-    return processed_audience
+    # 각 캠페인 내 지출 순 정렬
+    for cid, data in by_campaign.items():
+        data['age'].sort(key=lambda x: x['spend'], reverse=True)
+        data['gender'].sort(key=lambda x: x['spend'], reverse=True)
+        data['region'].sort(key=lambda x: x['spend'], reverse=True)
+
+    print(f"   ✅ 오디언스 데이터 처리 완료 ({len(by_campaign)}개 캠페인)")
+    return by_campaign
 
 
 def calculate_summary(processed_campaigns, notion_leads_count=0):
@@ -282,8 +277,15 @@ def main():
         # 캠페인 데이터 처리
         processed_campaigns = process_campaigns(raw_data.get('campaigns', []))
 
-        # 오디언스 데이터 처리
-        processed_audience = process_audience_data(raw_data.get('audience', {}))
+        # 오디언스 데이터를 캠페인별로 그룹화
+        audience_by_campaign = process_audience_data(raw_data.get('audience', {}))
+
+        # 캠페인에 오디언스 데이터 매핑
+        for campaign in processed_campaigns:
+            cid = campaign['campaign_id']
+            campaign['audience'] = audience_by_campaign.get(cid, {
+                'age': [], 'gender': [], 'region': []
+            })
 
         # 주간 요약 계산 (Notion 문의 수를 실제 전환으로 사용)
         summary = calculate_summary(processed_campaigns, notion_leads_count)
@@ -294,7 +296,6 @@ def main():
             'date_range': raw_data.get('date_range', {}),
             'summary': summary,
             'campaigns': processed_campaigns,
-            'audience': processed_audience,
             'metadata': {
                 'source_file': raw_data.get('collected_at'),
                 'ad_account_id': raw_data.get('ad_account_id')
