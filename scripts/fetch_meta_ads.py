@@ -192,8 +192,8 @@ def main():
 
         print(f"📱 광고 계정: {ad_account_id}")
 
-        # 날짜 범위 설정 (지난 7일)
-        date_range = get_date_range(days=7)
+        # 날짜 범위 설정 (전주 월~일)
+        date_range = get_date_range()
 
         # 데이터 수집
         campaign_data = fetch_campaign_insights(ad_account_id, date_range, access_token)
