@@ -237,5 +237,28 @@ def main():
         sys.exit(1)
 
 
+def _ping_healthcheck(status: str = "success", body: str = ""):
+    """Healthchecks.io heartbeat ping. status: 'success' | 'fail' | 'start'"""
+    url = os.getenv("HEALTHCHECK_PING_URL", "")
+    if not url:
+        return
+    try:
+        import urllib.request
+        suffix = {"fail": "/fail", "start": "/start"}.get(status, "")
+        req = urllib.request.Request(url + suffix, data=body.encode()[:10000] if body else None)
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"[WARN] Healthcheck ping 실패: {e}")
+
+
 if __name__ == "__main__":
-    main()
+    _ping_healthcheck("start")
+    try:
+        main()
+        _ping_healthcheck("success")
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[FATAL] {e}\n{tb}")
+        _ping_healthcheck("fail", f"{e}\n{tb}")
+        sys.exit(1)
