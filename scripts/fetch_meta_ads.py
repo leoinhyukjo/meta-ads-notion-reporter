@@ -10,16 +10,55 @@ Meta Marketing API 데이터 수집 스크립트
 import os
 import sys
 import json
-import requests
+import urllib.request
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
+from pathlib import Path
 
-# 프로젝트 루트 디렉토리
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# ── Early healthcheck (stdlib only) ──────────────────────────
+# Import 실패 시에도 healthcheck ping이 가능하도록 서드파티 import 전에 정의
+
+PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 sys.path.insert(0, PROJECT_ROOT)
 
-# 환경 변수 로드
-load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
+# .env를 stdlib만으로 수동 파싱 (load_dotenv 없이)
+_dotenv_path = os.path.join(PROJECT_ROOT, '.env')
+if os.path.isfile(_dotenv_path):
+    with open(_dotenv_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith('#') or '=' not in _line:
+                continue
+            _key, _, _val = _line.partition('=')
+            _key = _key.strip()
+            _val = _val.strip().strip('"').strip("'")
+            if _key and _key not in os.environ:
+                os.environ[_key] = _val
+
+
+def _ping_healthcheck(status: str = "success", body: str = ""):
+    """Healthchecks.io heartbeat ping. status: 'success' | 'fail' | 'start'"""
+    url = os.environ.get("HEALTHCHECK_PING_URL", "")
+    if not url:
+        return
+    try:
+        suffix = {"fail": "/fail", "start": "/start"}.get(status, "")
+        req = urllib.request.Request(url + suffix, data=body.encode()[:10000] if body else None)
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"[WARN] Healthcheck ping 실패: {e}")
+
+
+# ── Third-party imports ──────────────────────────────────────
+try:
+    import requests
+    from dotenv import load_dotenv
+except ImportError as exc:
+    _ping_healthcheck("fail", f"ImportError: {exc}")
+    print(f"[FATAL] 필수 패키지 import 실패: {exc}")
+    raise SystemExit(1)
+
+# 환경 변수 로드 (load_dotenv로 덮어쓰기 — 수동 파싱보다 정확)
+load_dotenv(os.path.join(PROJECT_ROOT, '.env'), override=True)
 
 
 def get_date_range():
@@ -235,20 +274,6 @@ def main():
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
-
-def _ping_healthcheck(status: str = "success", body: str = ""):
-    """Healthchecks.io heartbeat ping. status: 'success' | 'fail' | 'start'"""
-    url = os.getenv("HEALTHCHECK_PING_URL", "")
-    if not url:
-        return
-    try:
-        import urllib.request
-        suffix = {"fail": "/fail", "start": "/start"}.get(status, "")
-        req = urllib.request.Request(url + suffix, data=body.encode()[:10000] if body else None)
-        urllib.request.urlopen(req, timeout=10)
-    except Exception as e:
-        print(f"[WARN] Healthcheck ping 실패: {e}")
 
 
 if __name__ == "__main__":
