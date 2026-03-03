@@ -205,6 +205,92 @@ def fetch_audience_insights(ad_account_id, date_range, access_token):
     return audience_data
 
 
+def fetch_adset_insights(ad_account_id, date_range, access_token):
+    """AdSet 레벨 성과 데이터 수집"""
+    api_version = 'v19.0'
+    base_url = f'https://graph.facebook.com/{api_version}'
+
+    fields = [
+        'campaign_id',
+        'campaign_name',
+        'adset_id',
+        'adset_name',
+        'impressions',
+        'clicks',
+        'spend',
+        'reach',
+        'frequency',
+        'cpc',
+        'cpm',
+        'ctr',
+        'actions',
+        'action_values',
+    ]
+
+    params = {
+        'access_token': access_token,
+        'fields': ','.join(fields),
+        'time_range': json.dumps(date_range),
+        'level': 'adset',
+        'limit': 500
+    }
+
+    print("📊 AdSet 인사이트 수집 중...")
+    url = f'{base_url}/{ad_account_id}/insights'
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Meta API 에러 (AdSet): {response.status_code} - {response.text}")
+
+    adset_data = response.json().get('data', [])
+    print(f"   ✅ {len(adset_data)}개 AdSet 데이터 수집 완료")
+    return adset_data
+
+
+def fetch_ad_insights(ad_account_id, date_range, access_token):
+    """Ad(소재) 레벨 성과 데이터 수집"""
+    api_version = 'v19.0'
+    base_url = f'https://graph.facebook.com/{api_version}'
+
+    fields = [
+        'campaign_id',
+        'campaign_name',
+        'adset_id',
+        'adset_name',
+        'ad_id',
+        'ad_name',
+        'impressions',
+        'clicks',
+        'spend',
+        'reach',
+        'frequency',
+        'cpc',
+        'cpm',
+        'ctr',
+        'actions',
+        'action_values',
+    ]
+
+    params = {
+        'access_token': access_token,
+        'fields': ','.join(fields),
+        'time_range': json.dumps(date_range),
+        'level': 'ad',
+        'limit': 500
+    }
+
+    print("📊 Ad(소재) 인사이트 수집 중...")
+    url = f'{base_url}/{ad_account_id}/insights'
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        raise Exception(f"Meta API 에러 (Ad): {response.status_code} - {response.text}")
+
+    ad_data = response.json().get('data', [])
+    print(f"   ✅ {len(ad_data)}개 Ad 데이터 수집 완료")
+    return ad_data
+
+
 def save_data(data, filename):
     """데이터를 JSON 파일로 저장"""
     output_path = os.path.join(PROJECT_ROOT, 'data', 'raw', filename)
@@ -239,6 +325,8 @@ def main():
         # 데이터 수집
         campaign_data = fetch_campaign_insights(ad_account_id, date_range, access_token)
         audience_data = fetch_audience_insights(ad_account_id, date_range, access_token)
+        adset_data = fetch_adset_insights(ad_account_id, date_range, access_token)
+        ad_data = fetch_ad_insights(ad_account_id, date_range, access_token)
 
         # 전체 데이터 구조
         full_data = {
@@ -246,9 +334,13 @@ def main():
             'date_range': date_range,
             'ad_account_id': ad_account_id,
             'campaigns': campaign_data,
+            'adsets': adset_data,
+            'ads': ad_data,
             'audience': audience_data,
             'summary': {
                 'total_campaigns': len(campaign_data),
+                'total_adsets': len(adset_data),
+                'total_ads': len(ad_data),
                 'total_age_segments': len(audience_data.get('age', [])),
                 'total_gender_segments': len(audience_data.get('gender', [])),
                 'total_region_segments': len(audience_data.get('region', []))
@@ -264,6 +356,7 @@ def main():
         print("=" * 60)
         print("✅ 데이터 수집 완료!")
         print(f"   총 캠페인: {full_data['summary']['total_campaigns']}개")
+        print(f"   총 Ad: {full_data['summary']['total_ads']}개")
         print(f"   파일 경로: {output_path}")
         print("=" * 60)
 

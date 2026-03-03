@@ -207,6 +207,95 @@ def process_audience_data(audience_data):
     return by_campaign
 
 
+def process_adset_data(raw_adsets):
+    """AdSet 데이터를 캠페인별로 그룹화하여 처리"""
+    print("📊 AdSet 데이터 처리 중...")
+
+    by_campaign: dict[str, list] = {}
+
+    for adset in raw_adsets:
+        cid = adset.get('campaign_id', 'unknown')
+        if cid not in by_campaign:
+            by_campaign[cid] = []
+
+        impressions = safe_int(adset.get('impressions', 0))
+        clicks = safe_int(adset.get('clicks', 0))
+        spend = round(safe_float(adset.get('spend', 0)), 2)
+
+        # 전환 추출
+        actions = adset.get('actions', [])
+        lead = extract_actions(actions, 'lead')
+        purchase = extract_actions(actions, 'purchase')
+        total_conversions = lead + purchase
+
+        by_campaign[cid].append({
+            'adset_id': adset.get('adset_id'),
+            'adset_name': adset.get('adset_name', ''),
+            'impressions': impressions,
+            'clicks': clicks,
+            'spend': spend,
+            'reach': safe_int(adset.get('reach', 0)),
+            'frequency': round(safe_float(adset.get('frequency', 0)), 2),
+            'cpc': round(spend / clicks, 2) if clicks > 0 else 0,
+            'ctr': round(clicks / impressions * 100, 2) if impressions > 0 else 0,
+            'cpm': round(safe_float(adset.get('cpm', 0)), 2),
+            'conversions': total_conversions,
+            'cpa': round(spend / total_conversions, 2) if total_conversions > 0 else 0,
+        })
+
+    # 각 캠페인 내 지출 순 정렬
+    for cid in by_campaign:
+        by_campaign[cid].sort(key=lambda x: x['spend'], reverse=True)
+
+    total = sum(len(v) for v in by_campaign.values())
+    print(f"   ✅ AdSet 데이터 처리 완료 ({total}개 AdSet, {len(by_campaign)}개 캠페인)")
+    return by_campaign
+
+
+def process_ad_data(raw_ads):
+    """Ad(소재) 데이터를 캠페인별로 그룹화하여 처리"""
+    print("📊 Ad 데이터 처리 중...")
+
+    by_campaign: dict[str, list] = {}
+
+    for ad in raw_ads:
+        cid = ad.get('campaign_id', 'unknown')
+        if cid not in by_campaign:
+            by_campaign[cid] = []
+
+        impressions = safe_int(ad.get('impressions', 0))
+        clicks = safe_int(ad.get('clicks', 0))
+        spend = round(safe_float(ad.get('spend', 0)), 2)
+
+        # 전환 추출
+        actions = ad.get('actions', [])
+        lead = extract_actions(actions, 'lead')
+        purchase = extract_actions(actions, 'purchase')
+        total_conversions = lead + purchase
+
+        by_campaign[cid].append({
+            'ad_id': ad.get('ad_id'),
+            'ad_name': ad.get('ad_name', ''),
+            'adset_name': ad.get('adset_name', ''),
+            'impressions': impressions,
+            'clicks': clicks,
+            'spend': spend,
+            'reach': safe_int(ad.get('reach', 0)),
+            'frequency': round(safe_float(ad.get('frequency', 0)), 2),
+            'cpc': round(spend / clicks, 2) if clicks > 0 else 0,
+            'ctr': round(clicks / impressions * 100, 2) if impressions > 0 else 0,
+            'conversions': total_conversions,
+        })
+
+    # 각 캠페인 내 지출 순 정렬
+    for cid in by_campaign:
+        by_campaign[cid].sort(key=lambda x: x['spend'], reverse=True)
+
+    total = sum(len(v) for v in by_campaign.values())
+    print(f"   ✅ Ad 데이터 처리 완료 ({total}개 Ad, {len(by_campaign)}개 캠페인)")
+    return by_campaign
+
+
 def calculate_summary(processed_campaigns, notion_leads_count=0):
     """주간 요약 통계 계산"""
     print("📊 주간 요약 계산 중...")
@@ -280,12 +369,20 @@ def main():
         # 오디언스 데이터를 캠페인별로 그룹화
         audience_by_campaign = process_audience_data(raw_data.get('audience', {}))
 
-        # 캠페인에 오디언스 데이터 매핑
+        # AdSet 데이터를 캠페인별로 그룹화
+        adset_by_campaign = process_adset_data(raw_data.get('adsets', []))
+
+        # Ad 데이터를 캠페인별로 그룹화
+        ad_by_campaign = process_ad_data(raw_data.get('ads', []))
+
+        # 캠페인에 오디언스 + AdSet + Ad 데이터 매핑
         for campaign in processed_campaigns:
             cid = campaign['campaign_id']
             campaign['audience'] = audience_by_campaign.get(cid, {
                 'age': [], 'gender': [], 'region': []
             })
+            campaign['adsets'] = adset_by_campaign.get(cid, [])
+            campaign['ads'] = ad_by_campaign.get(cid, [])
 
         # 주간 요약 계산 (Notion 문의 수를 실제 전환으로 사용)
         summary = calculate_summary(processed_campaigns, notion_leads_count)
